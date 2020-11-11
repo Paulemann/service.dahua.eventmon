@@ -200,7 +200,6 @@ class CamLifeview(xbmcgui.WindowDialog):
                         r.raise_for_status()
                     except requests.exceptions.HTTPError as e:
                         log('update(): HTTP error {}'.format(str(e)))
-                    self.session = None
                     snapshot = None
 
             except Exception as e:
