@@ -82,6 +82,7 @@ class CamLifeview(xbmcgui.WindowDialog):
             'username': username,
             'password': password,
             }
+        self.session = None
 
         x, y, w, h = self.coordinates(position)
         self.control = xbmcgui.ControlImage(x, y, w, h, __loading__, aspectRatio=SETTINGS['aspectRatio'])
@@ -132,7 +133,21 @@ class CamLifeview(xbmcgui.WindowDialog):
 
 
     def auth_get(self, url, *args, **kwargs):
-        return requests.get(url, auth=HTTPDigestAuth(*args), **kwargs)
+        if not self.session:
+            self.session = requests.Session()
+            # Dahua cams use Digest Authentication scheme
+            self.session.auth = HTTPDigestAuth(*args)
+
+        try:
+            r = self.session.get(url, **kwargs)
+        #except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.RequestException as e:
+            r = None
+            self.session = None
+            log(e)
+
+        return r
+        #return requests.get(url, auth=HTTPDigestAuth(*args), **kwargs)
 
 
     def start(self):
@@ -156,6 +171,8 @@ class CamLifeview(xbmcgui.WindowDialog):
         for file in xbmcvfs.listdir(self.tmpdir)[1]:
             xbmcvfs.delete(os.path.join(self.tmpdir, file))
         xbmcvfs.rmdir(self.tmpdir)
+
+        self.session = None
 
 
     def update(self):
@@ -183,6 +200,7 @@ class CamLifeview(xbmcgui.WindowDialog):
                         r.raise_for_status()
                     except requests.exceptions.HTTPError as e:
                         log('update(): HTTP error {}'.format(str(e)))
+                    self.session = None
                     snapshot = None
 
             except Exception as e:
