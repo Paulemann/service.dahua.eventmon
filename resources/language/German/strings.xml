@@ -28,13 +28,14 @@
 
   <string id="33001">Fensterbreite (Pixel):</string>
   <string id="33002">Fensterhöhe (Pixel):</string>
-  <string id="33003">Aktualisierungsinterval (Millisek.):</string>
-  <string id="33004">Automatisches Schließen:</string>
-  <string id="33005">Anzeigedauer (Sekunden):</string>
-  <string id="33006">Ausrichtung:</string>
-  <string id="33007">Zwischenraum (Pixel):</string>
+  <string id="33003">Zwischenraum (Pixel):</string>
+  <string id="33004">Aktualisierungsinterval (Millisek.):</string>
+  <string id="33005">Automatisches Schließen:</string>
+  <string id="33006">Anzeigedauer (Sekunden):</string>
+  <string id="33007">Ausrichtung:</string>
   <string id="33008">Bildformat-Anpassung:</string>
   <string id="33009">Security Cam Overlay Addon verwenden:</string>
+  <string id="33010">Feste Ausgabe-Position:</string>
 
   <string id="34000">Vertikal: rechts, von oben nach unten</string>
   <string id="34001">Vertikal: links, von oben nach unten</string>

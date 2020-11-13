@@ -32,15 +32,14 @@
 
   <string id="33001">Window Width (Pixels):</string>
   <string id="33002">Window Height (Pixels):</string>
-  <string id="33003">Refresh Interval (Milliseconds):</string>
-
-  <string id="33004">Enable auto-close after duration:</string>
-  <string id="33005">Duration (Seconds):</string>
-
-  <string id="33006">Alignment:</string>
-  <string id="33007">Padding (Pixels):</string>
+  <string id="33003">Padding (Pixels):</string>
+  <string id="33004">Refresh Interval (Milliseconds):</string>
+  <string id="33005">Enable auto-close after duration:</string>
+  <string id="33006">Duration (Seconds):</string>
+  <string id="33007">Alignment:</string>
   <string id="33008">Aspect Ratio:</string>
   <string id="33009">Use Security Cam Overlay Addon:</string>
+  <string id="33010">Fix output position:</string>
 
   <string id="34000">Vertical: right, from top to bottom</string>
   <string id="34001">Vertical: left, from top to bottom</string>

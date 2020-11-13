@@ -31,12 +31,13 @@
   <category label="33000">
     <setting label="33001" type="number" id="width" default="320" option="int" />
     <setting label="33002" type="number" id="height" default="180" option="int" />
-    <setting label="33003" type="slider" id="interval" default="500" range="50,50,1000" option="int" />
-	  <setting label="33004" type="bool" id="autoClose" default="true" />
-    <setting label="33005" type="slider" id="duration" default="15" range="3,1,120" option="int" enable="eq(-1,true)" />
-    <setting label="33006" type="enum" id="alignment" default="0" option="int" lvalues="34000|34001|34002|34003|34004|34005|34006|34007|34008|34009" />
-    <setting label="33007" type="number" id="padding" default="20" option="int" />
+    <setting label="33003" type="number" id="padding" default="20" option="int" />
+    <setting label="33004" type="slider" id="interval" default="500" range="50,50,1000" option="int" />
+	  <setting label="33005" type="bool" id="autoClose" default="true" />
+    <setting label="33006" type="slider" id="duration" default="15" range="3,1,120" option="int" enable="eq(-1,true)" />
+    <setting label="33007" type="enum" id="alignment" default="0" option="int" lvalues="34000|34001|34002|34003|34004|34005|34006|34007|34008|34009" />
     <setting label="33008" type="enum" id="aspectRatio" default="1" option="int" lvalues="34020|34021|34022" />
     <setting label="33009" type="bool" id="useAddon" default="false" visible="System.HasAddon(script.securitycam)"/>
+    <setting label="33010" type="bool" id="fixPosition" default="true" />
   </category>
 </settings>

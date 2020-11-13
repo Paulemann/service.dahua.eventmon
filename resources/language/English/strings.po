@@ -125,23 +125,23 @@ msgid "Window Height (Pixels):"
 msgstr ""
 
 msgctxt "#33003"
-msgid "Refresh Interval (Milliseconds):"
+msgid "Padding (Pixels):"
 msgstr ""
 
 msgctxt "#33004"
-msgid "Enable auto-close after duration:"
+msgid "Refresh Interval (Milliseconds):"
 msgstr ""
 
 msgctxt "#33005"
-msgid "Duration (Seconds):"
+msgid "Enable auto-close after duration:"
 msgstr ""
 
 msgctxt "#33006"
-msgid "Alignment:"
+msgid "Duration (Seconds):"
 msgstr ""
 
 msgctxt "#33007"
-msgid "Padding (Pixels):"
+msgid "Alignment:"
 msgstr ""
 
 msgctxt "#33008"
@@ -150,6 +150,10 @@ msgstr ""
 
 msgctxt "#33009"
 msgid "Use Security Cam Overlay Addon:"
+msgstr ""
+
+msgctxt "#33010"
+msgid "Fix output position:"
 msgstr ""
 
 msgctxt "#34000"

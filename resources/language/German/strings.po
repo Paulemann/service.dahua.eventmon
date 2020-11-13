@@ -125,24 +125,24 @@ msgid "Window Height (Pixels):"
 msgstr "Fensterhöhe (Pixel):"
 
 msgctxt "#33003"
+msgid "Padding (Pixels):"
+msgstr "Zwischenraum (Pixel):"
+
+msgctxt "#33004"
 msgid "Refresh Interval (Milliseconds):"
 msgstr "Aktualisierungsinterval (Millisek.):"
 
-msgctxt "#33004"
+msgctxt "#33005"
 msgid "Enable auto-close after duration:"
 msgstr "Automatisches Schließen:"
 
-msgctxt "#33005"
+msgctxt "#33006"
 msgid "Duration (Seconds):"
 msgstr "Anzeigedauer (Sekunden):"
 
-msgctxt "#33006"
+msgctxt "#33007"
 msgid "Alignment:"
 msgstr "Ausrichtung:"
-
-msgctxt "#33007"
-msgid "Padding (Pixels):"
-msgstr "Zwischenraum (Pixel):"
 
 msgctxt "#33008"
 msgid "Aspect Ratio:"
@@ -151,6 +151,10 @@ msgstr "Bildformat-Anpassung:"
 msgctxt "#33009"
 msgid "Use Security Cam Overlay Addon:"
 msgstr "Security Cam Overlay Addon verwenden:"
+
+msgctxt "#33010"
+msgid "Fix output position:"
+msgstr "Feste Ausgabe-Position:"
 
 msgctxt "#34000"
 msgid "Vertical: right, from top to bottom"
