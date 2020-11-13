@@ -13,7 +13,7 @@ __addon_id__     = __addon__.getAddonInfo('id')
 __addon_path__   = __addon__.getAddonInfo('path')
 __profile__      = __addon__.getAddonInfo('profile')
 
-__setting__      = __addon__.getSetting
+__getSetting__   = __addon__.getSetting
 __setSetting__   = __addon__.setSetting
 __localize__     = __addon__.getLocalizedString
 
@@ -26,53 +26,12 @@ ACTION_STOP = 13
 ACTION_NAV_BACK = 92
 ACTION_BACKSPACE = 110
 
-CAMERAS = None
-SETTINGS = None
+posIndex = 0
+MAXCAMS = 4
+
 
 def log(message,loglevel=xbmc.LOGNOTICE):
     xbmc.log(msg='[{}] {}'.format(__addon_id__, message), level=loglevel)
-
-def loadSettings():
-    global CAMERAS, SETTINGS
-
-    try:
-        CAMERAS = []
-        for i in range(1,5):
-            if __setting__('active' + str(i)) == 'true':
-                cam = {
-                    'host': __setting__('hostname' + str(i)),
-                    'port': int(float(__setting__('port' + str(i)))),
-                    'user': __setting__('username' + str(i)),
-                    'pass': __setting__('password' + str(i)),
-                    'events': 'VideoMotion' # 'VideoMotion, AlarmLocal'
-                    }
-                CAMERAS.append(cam)
-
-        SETTINGS = {
-            'width':       int(float(__setting__('width'))),
-            'height':      int(float(__setting__('height'))),
-            'interval':    int(float(__setting__('interval'))),
-            'duration':    int(float(__setting__('duration')) * 1000),
-            'alignment':   int(float(__setting__('alignment'))),
-            'padding':     int(float(__setting__('padding'))),
-            'aspectRatio': int(float(__setting__('aspectRatio'))),
-            'autoClose':   bool(__setting__('autoClose') == 'true'),
-            'useAddon':    bool(__setting__('useAddon') == 'true')
-            }
-        if xbmc.getCondVisibility('System.HasAddon(script.securitycam)') == 0:
-            log('Security Cam Overlay Addon is not installed.')
-            SETTINGS['useAddon'] = False
-            __setSetting__('useAddon', 'false')
-        log('Addon settings: {}'.format(SETTINGS), loglevel=xbmc.LOGDEBUG)
-    except Exception as e:
-        log('Loading addon settings failed with exception {}'.format(str(e)))
-        raise SystemExit
-
-    if not CAMERAS:
-        log('No cameras configured. Abort')
-        raise SystemExit
-
-    log('Addon settings loaded')
 
 
 class CamLifeview(xbmcgui.WindowDialog):
@@ -83,49 +42,73 @@ class CamLifeview(xbmcgui.WindowDialog):
             'password': password,
             }
         self.session = None
+        self.control = None
+        self.position = position
 
-        x, y, w, h = self.coordinates(position)
-        self.control = xbmcgui.ControlImage(x, y, w, h, __loading__, aspectRatio=SETTINGS['aspectRatio'])
-        self.addControl(self.control)
+        # Dahua cams use Digest Authentication scheme
+        self.auth = 'digest'
+
+        # Defaults:
+        #self.width       = 320
+        #self.height      = 180
+        #self.padding     = 20
+        #self.alignment   = 0
+        #self.autoClose   = True
+        #self.duration    = 15000
+        #self.interval    = 500
+        #self.aspectRatio = 1
+        #self.fixPosition = True
+        self.loadSettings()
+
+
+    def loadSettings(self):
+        self.width       = int(float(__getSetting__('width')))
+        self.height      = int(float(__getSetting__('height')))
+        self.padding     = int(float(__getSetting__('padding')))
+        self.alignment   = int(float(__getSetting__('alignment')))
+        self.autoClose   = bool(__getSetting__('autoClose') == 'true')
+        self.duration    = int(float(__getSetting__('duration')) * 1000)
+        self.interval    = int(float(__getSetting__('interval')))
+        self.aspectRatio = int(float(__getSetting__('aspectRatio')))
+        self.fixPosition = bool(__getSetting__('fixPosition') == 'true')
+
 
     def coordinates(self, position):
         WIDTH  = 1280
         HEIGHT = 720
 
-        w = SETTINGS['width']
-        h = SETTINGS['height']
-        p = SETTINGS['padding']
+        w = self.width
+        h = self.height
+        p = self.padding
 
-        alignment = SETTINGS['alignment']
-
-        if alignment == 0: # vertical right, top to bottom
+        if self.alignment == 0: # vertical right, top to bottom
             x = WIDTH - (w + p)
             y = p + position * (h + p)
-        if alignment == 1: # vertical left, top to bottom
+        if self.alignment == 1: # vertical left, top to bottom
             x = p
             y = p + position * (h + p)
-        if alignment == 2: # horizontal top, left to right
+        if self.alignment == 2: # horizontal top, left to right
             x = p + position * (w + p)
             y = p
-        if alignment == 3: # horizontal bottom, left to right
+        if self.alignment == 3: # horizontal bottom, left to right
             x = p + position * (w + p)
             y = HEIGHT - (h + p)
-        if alignment == 4: # square right
+        if self.alignment == 4: # square right
             x = WIDTH - (2 - position%2) * (w + p)
             y = p + position/2 * (h + p)
-        if alignment == 5: # square left
+        if self.alignment == 5: # square left
             x = p + position%2 * (w + p)
             y = p + position/2 * (h + p)
-        if alignment == 6: # vertical right, bottom to top
+        if self.alignment == 6: # vertical right, bottom to top
             x = WIDTH - (w + p)
             y = HEIGHT - (position + 1) * (h + p)
-        if alignment == 7: # vertical left, bottom to top
+        if self.alignment == 7: # vertical left, bottom to top
             x = p
             y = HEIGHT - (position + 1) * (h + p)
-        if alignment == 8: # horizontal top, right to left
+        if self.alignment == 8: # horizontal top, right to left
             x = WIDTH - (position + 1) * (w + p)
             y = p
-        if alignment == 9: # horizontal bottom, right to left
+        if self.alignment == 9: # horizontal bottom, right to left
             x = WIDTH - (position + 1) * (w + p)
             y = HEIGHT - (h + p)
 
@@ -135,8 +118,11 @@ class CamLifeview(xbmcgui.WindowDialog):
     def auth_get(self, url, *args, **kwargs):
         if not self.session:
             self.session = requests.Session()
-            # Dahua cams use Digest Authentication scheme
-            self.session.auth = HTTPDigestAuth(*args)
+
+            if self.auth == 'digest':
+                self.session.auth = HTTPDigestAuth(*args)
+            else:
+                self.session.auth = HTTPBasicAuth(*args)
 
         try:
             r = self.session.get(url, **kwargs)
@@ -155,6 +141,22 @@ class CamLifeview(xbmcgui.WindowDialog):
 
 
     def _start(self):
+        global posIndex
+
+        if self.fixPosition:
+            position = self.position
+        else:
+            position = posIndex
+
+        if self.control:
+            self.removeControl(self.control)
+
+        x, y, w, h = self.coordinates(position)
+        self.control = xbmcgui.ControlImage(x, y, w, h, __loading__, aspectRatio=self.aspectRatio)
+        self.addControl(self.control)
+
+        posIndex = (posIndex + 1) % MAXCAMS
+
         self.tmpdir = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
         self.tmpdir = os.path.join(__profile__, self.tmpdir)
         if not xbmcvfs.exists(self.tmpdir):
@@ -168,6 +170,9 @@ class CamLifeview(xbmcgui.WindowDialog):
         self.isRunning = False
         self.close()
 
+        if posIndex:
+            posIndex -= 1
+
         for file in xbmcvfs.listdir(self.tmpdir)[1]:
             xbmcvfs.delete(os.path.join(self.tmpdir, file))
         xbmcvfs.rmdir(self.tmpdir)
@@ -177,11 +182,15 @@ class CamLifeview(xbmcgui.WindowDialog):
 
     def update(self):
         index = 1
+        old_snapshot = None
         startTime = time.time()
 
-        while(not SETTINGS['autoClose'] or (time.time() - startTime) * 1000 <= SETTINGS['duration']):
+        while(not self.autoClose or (time.time() - startTime) * 1000 <= self.duration):
             if not self.isRunning:
                  break
+
+            if index > 1:
+                old_snapshot = snapshot
 
             snapshot = os.path.join(self.tmpdir, 'snapshot_{:06d}.jpg'.format(index))
             index += 1
@@ -210,7 +219,10 @@ class CamLifeview(xbmcgui.WindowDialog):
             if snapshot and xbmcvfs.exists(snapshot):
                 self.control.setImage(snapshot, False)
 
-            xbmc.sleep(SETTINGS['interval'])
+            if old_snapshot and xbmcvfs.exists(old_snapshot):
+                xbmcvfs.delete(old_snapshot)
+
+            xbmc.sleep(self.interval)
 
 
     def onAction(self, action):
@@ -222,7 +234,7 @@ class CamLifeview(xbmcgui.WindowDialog):
         self.isRunning = False
 
 
-class DahuaCamera():
+class CamEventMgr():
     SNAPSHOT_URL = 'http://{}:{}/cgi-bin/snapshot.cgi?1'
 
     def __init__(self, master, index, camera):
@@ -249,10 +261,16 @@ class DahuaCamera():
             'id': '1'
             }
 
+        self.UseCamAddon = self.LoadSettings()
+
+
+    def LoadSettings(self):
+        return bool(__getSetting__('useAddon') == 'true')
+
 
     def OnConnect(self):
         log('Connected to event manager on {}'.format(self.Camera['host']))
-        if SETTINGS['useAddon']:
+        if self.UseCamAddon:
             self.Lifeview = None
         elif not self.Lifeview:
             self.Lifeview = CamLifeview(self.SNAPSHOT_URL.format(self.Camera['host'], self.Camera['port']),
@@ -271,7 +289,7 @@ class DahuaCamera():
     def OnEvent(self, event, action):
         log('{} reported event {}: {}'.format(self.Camera['host'], event, action))
         if action == 'Start':
-            if self.Lifeview:
+            if self.Lifeview: # and not self.UseCamAddon:
                 self.Lifeview.start()
                 log('{} Lifeview started'.format(self.Camera['host']))
             else:
@@ -287,7 +305,6 @@ class DahuaCamera():
         elif action == 'Stop':
             if self.Lifeview:
                 self.Lifeview.stop()
-                #log('{} Lifeview stopped'.format(self.Camera['host']))
 
 
     def OnReceive(self, data):
@@ -312,22 +329,34 @@ class DahuaCamera():
                 self.OnEvent(Event['Code'], Event['action'])
 
 
-class DahuaEventMgr():
+class xbmcMonitor(xbmc.Monitor):
+    def __init__ (self):
+        xbmc.Monitor.__init__(self)
+        self.settingsChanged = False
+
+
+    def onSettingsChanged(self):
+        self.settingsChanged = True
+
+
+class DahuaCamMonitor():
     EVENTMGR_URL = 'http://{user}:{pass}@{host}:{port}/cgi-bin/eventManager.cgi?action=attach&codes=[{events}]'
 
     def __init__(self):
-        self.Cameras = []
+        self.EventMgrs = []
         self.CurlMultiObj = pycurl.CurlMulti()
         self.NumCurlObjs = 0
 
-        for Index, Camera in enumerate(CAMERAS):
-            DahuaCam = DahuaCamera(self, Index, Camera)
-            self.Cameras.append(DahuaCam)
+        self.Cameras = self.LoadCams()
+
+        for Index, Camera in enumerate(self.Cameras):
+            EventMgr = CamEventMgr(self, Index, Camera)
+            self.EventMgrs.append(EventMgr)
 
             url = self.EVENTMGR_URL.format(**Camera)
 
             CurlObj = pycurl.Curl()
-            DahuaCam.CurlObj = CurlObj
+            EventMgr.CurlObj = CurlObj
 
             CurlObj.setopt(pycurl.URL, url)
             CurlObj.setopt(pycurl.CONNECTTIMEOUT, 30)
@@ -335,18 +364,40 @@ class DahuaEventMgr():
             CurlObj.setopt(pycurl.TCP_KEEPIDLE, 30)
             CurlObj.setopt(pycurl.TCP_KEEPINTVL, 15)
             CurlObj.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_DIGEST)
-            CurlObj.setopt(pycurl.WRITEFUNCTION, DahuaCam.OnReceive)
+            CurlObj.setopt(pycurl.WRITEFUNCTION, EventMgr.OnReceive)
 
             self.CurlMultiObj.add_handle(CurlObj)
             self.NumCurlObjs += 1
 
 
-    def Run(self, timeout = 0.1):
-        monitor = xbmc.Monitor()
+    def LoadCams(self):
+        Cameras = []
 
+        for i in range(1,5):
+            if __getSetting__('active' + str(i)) == 'true':
+                cam = {
+                    'host': __getSetting__('hostname' + str(i)),
+                    'port': int(float(__getSetting__('port' + str(i)))),
+                    'user': __getSetting__('username' + str(i)),
+                    'pass': __getSetting__('password' + str(i)),
+                    'events': 'VideoMotion' # 'VideoMotion, AlarmLocal'
+                    }
+                Cameras.append(cam)
+
+        return Cameras
+
+
+    def Run(self, timeout = 0.1):
+        Reload = False
         NumHandles = self.NumCurlObjs
 
-        while not monitor.abortRequested() and NumHandles:
+        if not NumHandles:
+            return False
+
+        #Monitor = xbmc.Monitor()
+        Monitor = xbmcMonitor()
+
+        while not Monitor.abortRequested() and not Reload: # and NumHandles:
             Ret = self.CurlMultiObj.select(timeout)
             if Ret == -1:
                 continue
@@ -358,36 +409,45 @@ class DahuaEventMgr():
                     _, Success, Error = self.CurlMultiObj.info_read()
 
                     for CurlObj in Success:
-                        Camera = next(iter(filter(lambda x: x.CurlObj == CurlObj, self.Cameras)))
-                        if Camera.Reconnect:
+                        EventMgr = next(iter(filter(lambda x: x.CurlObj == CurlObj, self.EventMgrs)))
+                        if EventMgr.Reconnect:
                             continue
 
-                        Camera.OnDisconnect('Success')
-                        Camera.Reconnect = time.time() + 5
+                        EventMgr.OnDisconnect('Success')
+                        EventMgr.Reconnect = time.time() + 5
 
                     for CurlObj, ErrorNo, ErrorStr in Error:
-                        Camera = next(iter(filter(lambda x: x.CurlObj == CurlObj, self.Cameras)))
-                        if Camera.Reconnect:
+                        EventMgr = next(iter(filter(lambda x: x.CurlObj == CurlObj, self.EventMgrs)))
+                        if EventMgr.Reconnect:
                             continue
 
-                        Camera.OnDisconnect('{} ({})'.format(ErrorStr, ErrorNo))
-                        Camera.Reconnect = time.time() + 5
+                        EventMgr.OnDisconnect('{} ({})'.format(ErrorStr, ErrorNo))
+                        EventMgr.Reconnect = time.time() + 5
 
-                    for Camera in self.Cameras:
-                        if Camera.Reconnect and Camera.Reconnect < time.time():
-                            self.CurlMultiObj.remove_handle(Camera.CurlObj)
-                            self.CurlMultiObj.add_handle(Camera.CurlObj)
-                            Camera.Reconnect = None
+                    for EventMgr in self.EventMgrs:
+                        if EventMgr.Reconnect and EventMgr.Reconnect < time.time():
+                            self.CurlMultiObj.remove_handle(EventMgr.CurlObj)
+                            self.CurlMultiObj.add_handle(EventMgr.CurlObj)
+                            EventMgr.Reconnect = None
 
-                if monitor.waitForAbort(1):
-                    for Camera in self.Cameras:
-                        Camera.OnDisconnect('Exit')
+                if Monitor.waitForAbort(1):
+                    for EventMgr in self.EventMgrs:
+                        EventMgr.OnDisconnect('Exit')
+                    break
+
+                if Monitor.settingsChanged:
+                    for EventMgr in self.EventMgrs:
+                        EventMgr.OnDisconnect('Settings changed')
+                        del EventMgr
+                        Reload = True
                     break
 
                 if Ret != pycurl.E_CALL_MULTI_PERFORM:
                     break
 
-        del monitor
+        del Monitor
+
+        return Reload
 
 
 if __name__ == '__main__':
@@ -395,8 +455,14 @@ if __name__ == '__main__':
 
     #if not xbmcvfs.exists(__settings__):
     #    xbmc.executebuiltin('Addon.OpenSettings(' + __addon_id__ + ')')
+    Reload = True
 
-    loadSettings()
+    while Reload:
+        log('Connecting ...')
 
-    EventMgr = DahuaEventMgr()
-    EventMgr.Run()
+        CamMonitor = DahuaCamMonitor()
+        Reload = CamMonitor.Run()
+
+        log('Disconnected with Reload Status: {}'.format(Reload))
+
+        del CamMonitor
