@@ -196,7 +196,7 @@ class CamLifeview(xbmcgui.WindowDialog):
             index += 1
 
             try:
-                r = self.auth_get(self.cam['url'], self.cam['username'], self.cam['password'], verify=False, stream=True)
+                r = self.auth_get(self.cam['url'], self.cam['username'], self.cam['password'], timeout=10, verify=False, stream=True)
                 if r.status_code == 200:
                     image = r.content
 
