@@ -44,33 +44,25 @@ class CamLifeview(xbmcgui.WindowDialog):
         self.session = None
         self.control = None
         self.position = position
+        self.isRunning = False
 
         # Dahua cams use Digest Authentication scheme
         self.auth = 'digest'
 
-        # Defaults:
-        #self.width       = 320
-        #self.height      = 180
-        #self.padding     = 20
-        #self.alignment   = 0
-        #self.autoClose   = True
-        #self.duration    = 15000
-        #self.interval    = 500
-        #self.aspectRatio = 1
-        #self.fixPosition = True
         self.loadSettings()
 
 
     def loadSettings(self):
-        self.width       = int(float(__getSetting__('width')))
-        self.height      = int(float(__getSetting__('height')))
-        self.padding     = int(float(__getSetting__('padding')))
-        self.alignment   = int(float(__getSetting__('alignment')))
-        self.autoClose   = bool(__getSetting__('autoClose') == 'true')
-        self.duration    = int(float(__getSetting__('duration')) * 1000)
-        self.interval    = int(float(__getSetting__('interval')))
-        self.aspectRatio = int(float(__getSetting__('aspectRatio')))
-        self.fixPosition = bool(__getSetting__('fixPosition') == 'true')
+        self.width       = int(float(__getSetting__('width')))			# 320
+        self.height      = int(float(__getSetting__('height')))			# 180
+        self.padding     = int(float(__getSetting__('padding')))		# 20
+        self.alignment   = int(float(__getSetting__('alignment')))		# 0
+        self.useTimeout  = bool(__getSetting__('useTimeout') == 'true')		# True
+        self.timeout     = int(float(__getSetting__('timeout')) * 1000)		# 15000
+        self.interval    = int(float(__getSetting__('interval')))		# 500
+        self.aspectRatio = int(float(__getSetting__('aspectRatio')))		# 1
+        self.fixPosition = bool(__getSetting__('fixPosition') == 'true')	# True
+        self.reqTimeout  = 10 # Timeout for requests
 
 
     def coordinates(self, position):
@@ -126,14 +118,12 @@ class CamLifeview(xbmcgui.WindowDialog):
 
         try:
             r = self.session.get(url, **kwargs)
-        #except requests.exceptions.ConnectionError as e:
         except requests.exceptions.RequestException as e:
             r = None
             self.session = None
-            log(e)
+            raise
 
         return r
-        #return requests.get(url, auth=HTTPDigestAuth(*args), **kwargs)
 
 
     def start(self):
@@ -182,45 +172,48 @@ class CamLifeview(xbmcgui.WindowDialog):
 
     def update(self):
         index = 1
-        old_snapshot = None
         startTime = time.time()
 
-        while(not self.autoClose or (time.time() - startTime) * 1000 <= self.duration):
+        host = self.cam['url'].split('/')[2].split(':')[0]
+
+        while(not self.useTimeout or (time.time() - startTime) * 1000 <= self.timeout):
             if not self.isRunning:
                  break
 
-            if index > 1:
-                old_snapshot = snapshot
+            old_snapshot = snapshot if index > 1 else None
 
             snapshot = os.path.join(self.tmpdir, 'snapshot_{:06d}.jpg'.format(index))
             index += 1
 
             try:
-                r = self.auth_get(self.cam['url'], self.cam['username'], self.cam['password'], timeout=10, verify=False, stream=True)
-                if r.status_code == 200:
-                    image = r.content
+                response = self.auth_get(self.cam['url'], self.cam['username'], self.cam['password'], timeout=self.reqTimeout, verify=False, stream=True)
+
+                if response and response.status_code == 200:
+                    image = response.content
 
                     out = xbmcvfs.File(snapshot, 'wb')
                     out.write(bytearray(image))
                     out.close()
                 else:
-                    log('update(): Failed retrieving data from camera')
-                    try:
-                        r.raise_for_status()
-                    except requests.exceptions.HTTPError as e:
-                        log('update(): HTTP error {}'.format(str(e)))
                     snapshot = None
+                    if response:
+                        response.raise_for_status()
+
+            except requests.exceptions.RequestException as e:
+                log('{} Lifeview - Failed retrieving data from camera'.format(host))
+                snapshot = None
+                break
 
             except Exception as e:
-                log('update(): Exception {}'.format(str(e)))
+                log('{} Lifeview - Unexpected exception: {}'.format(host, str(e)))
                 snapshot = None
-                #break
+
+            finally:
+                if old_snapshot and xbmcvfs.exists(old_snapshot):
+                    xbmcvfs.delete(old_snapshot)
 
             if snapshot and xbmcvfs.exists(snapshot):
                 self.control.setImage(snapshot, False)
-
-            if old_snapshot and xbmcvfs.exists(old_snapshot):
-                xbmcvfs.delete(old_snapshot)
 
             xbmc.sleep(self.interval)
 
@@ -289,10 +282,10 @@ class CamEventMgr():
     def OnEvent(self, event, action):
         log('{} reported event {}: {}'.format(self.Camera['host'], event, action))
         if action == 'Start':
-            if self.Lifeview: # and not self.UseCamAddon:
+            if self.Lifeview and not self.Lifeview.isRunning:
                 self.Lifeview.start()
                 log('{} Lifeview started'.format(self.Camera['host']))
-            else:
+            elif self.UseCamAddon:
                 rpccmd = json.dumps(self.RPCcmd)
                 log('Calling \'script.securitycam\' addon ...')
                 log('JSON RPC command: {}'.format(rpccmd), loglevel=xbmc.LOGDEBUG)
@@ -303,24 +296,29 @@ class CamEventMgr():
                 elif 'result' in Ret and Ret['result'] == 'OK':
                     log('Call successful', loglevel=xbmc.LOGDEBUG)
         elif action == 'Stop':
-            if self.Lifeview:
+            if self.Lifeview and not self.Lifeview.useTimeout:
                 self.Lifeview.stop()
 
 
-    def OnReceive(self, data):
-        Data = data.decode('utf-8', errors='ignore')
-
-        for Line in Data.split('\r\n'):
-            #log('Debug: OnReceive(); Line={}'.format(Line))
-            if Line == 'HTTP/1.1 200 OK':
+    def HdrHandler(self, data):
+        for line in data.split('\r\n'):
+            log('{} sent header line: {}'.format(self.Camera['host'], line), loglevel=xbmc.LOGDEBUG)
+            if line == 'HTTP/1.1 200 OK':
                 self.OnConnect()
 
-            if not Line.startswith('Code='):
+
+    def OnReceive(self, data):
+        for line in data.split('\r\n'):
+            # This  part has moved to HdrHandler()
+            #if line == 'HTTP/1.1 200 OK':
+            #    self.OnConnect()
+
+            if not line.startswith('Code='):
                 continue
 
-            log('{} sent raw event: {}'.format(self.Camera['host'], Line), loglevel=xbmc.LOGDEBUG)
+            log('{} sent raw event: {}'.format(self.Camera['host'], line), loglevel=xbmc.LOGDEBUG)
             Event = dict()
-            for KeyValue in Line.split(';'):
+            for KeyValue in line.split(';'):
                 Key, Value = KeyValue.split('=')
                 Event[Key] = Value
 
@@ -365,6 +363,7 @@ class DahuaCamMonitor():
             CurlObj.setopt(pycurl.TCP_KEEPINTVL, 15)
             CurlObj.setopt(pycurl.HTTPAUTH, pycurl.HTTPAUTH_DIGEST)
             CurlObj.setopt(pycurl.WRITEFUNCTION, EventMgr.OnReceive)
+            CurlObj.setopt(pycurl.HEADERFUNCTION, EventMgr.HdrHandler)
 
             self.CurlMultiObj.add_handle(CurlObj)
             self.NumCurlObjs += 1
@@ -394,7 +393,6 @@ class DahuaCamMonitor():
         if not NumHandles:
             return False
 
-        #Monitor = xbmc.Monitor()
         Monitor = xbmcMonitor()
 
         while not Monitor.abortRequested() and not Reload: # and NumHandles:
@@ -445,6 +443,7 @@ class DahuaCamMonitor():
                 if Ret != pycurl.E_CALL_MULTI_PERFORM:
                     break
 
+        self.CurlMultiObj.close()
         del Monitor
 
         return Reload

@@ -35,7 +35,7 @@
   <string id="33003">Padding (Pixels):</string>
   <string id="33004">Refresh Interval (Milliseconds):</string>
   <string id="33005">Enable auto-close after duration:</string>
-  <string id="33006">Duration (Seconds):</string>
+  <string id="33006">- Duration (Seconds):</string>
   <string id="33007">Alignment:</string>
   <string id="33008">Aspect Ratio:</string>
   <string id="33009">Use Security Cam Overlay Addon:</string>

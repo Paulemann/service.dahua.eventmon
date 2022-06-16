@@ -137,8 +137,8 @@ msgid "Enable auto-close after duration:"
 msgstr "Automatisches Schließen:"
 
 msgctxt "#33006"
-msgid "Duration (Seconds):"
-msgstr "Anzeigedauer (Sekunden):"
+msgid "- Duration (Seconds):"
+msgstr "- Anzeigedauer (Sekunden):"
 
 msgctxt "#33007"
 msgid "Alignment:"

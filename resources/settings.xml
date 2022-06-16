@@ -15,14 +15,14 @@
     <setting label="32014" type="text" id="password2" option="hidden" default="" enable="!eq(-1,)" />
   </category>
   <category label="32020">
-	  <setting label="32025" type="bool" id="active3" default="false" enable="!eq(1,)"/>
+    <setting label="32025" type="bool" id="active3" default="false" enable="!eq(1,)"/>
     <setting label="32021" type="text" id="hostname3" default="" />
     <setting label="32022" type="number" id="port3" default="80" />
     <setting label="32023" type="text" id="username3" default="" enable="!eq(-1,)" />
     <setting label="32024" type="text" id="password3" option="hidden" default="" enable="!eq(-1,)" />
   </category>
   <category label="32030">
-	  <setting label="32035" type="bool" id="active4" default="false" enable="!eq(1,)"/>
+    <setting label="32035" type="bool" id="active4" default="false" enable="!eq(1,)"/>
     <setting label="32031" type="text" id="hostname4" default="" />
     <setting label="32032" type="number" id="port4" default="80" />
     <setting label="32033" type="text" id="username4" default="" enable="!eq(-1,)" />
@@ -33,8 +33,8 @@
     <setting label="33002" type="number" id="height" default="180" option="int" />
     <setting label="33003" type="number" id="padding" default="20" option="int" />
     <setting label="33004" type="slider" id="interval" default="500" range="50,50,1000" option="int" />
-	  <setting label="33005" type="bool" id="autoClose" default="true" />
-    <setting label="33006" type="slider" id="duration" default="15" range="3,1,120" option="int" enable="eq(-1,true)" />
+    <setting label="33005" type="bool" id="useTimeout" default="true" />
+    <setting label="33006" type="slider" id="timeout" default="15" range="3,1,120" option="int" enable="eq(-1,true)" />
     <setting label="33007" type="enum" id="alignment" default="0" option="int" lvalues="34000|34001|34002|34003|34004|34005|34006|34007|34008|34009" />
     <setting label="33008" type="enum" id="aspectRatio" default="1" option="int" lvalues="34020|34021|34022" />
     <setting label="33009" type="bool" id="useAddon" default="false" visible="System.HasAddon(script.securitycam)"/>

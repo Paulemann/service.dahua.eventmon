@@ -137,7 +137,7 @@ msgid "Enable auto-close after duration:"
 msgstr ""
 
 msgctxt "#33006"
-msgid "Duration (Seconds):"
+msgid "- Duration (Seconds):"
 msgstr ""
 
 msgctxt "#33007"
