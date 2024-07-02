@@ -1,12 +1,28 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+###########################
+#                         #
+# Requires:               #
+#                         #
+# pip(3) install pycurl   #
+#                         #
+###########################
+
 import pycurl
 import os, time, json, random, string
 import xbmc, xbmcaddon, xbmcgui, xbmcvfs
 import requests
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from threading import Thread
+
+if sys.version_info.major < 3:
+    INFO = xbmc.LOGNOTICE
+    from xbmc import translatePath
+else:
+    INFO = xbmc.LOGINFO
+    from xbmcvfs import translatePath
+DEBUG = xbmc.LOGDEBUG
 
 __addon__        = xbmcaddon.Addon()
 __addon_id__     = __addon__.getAddonInfo('id')
@@ -29,8 +45,10 @@ ACTION_BACKSPACE = 110
 posIndex = 0
 MAXCAMS = 4
 
+connTimeout = 5 # Default: 30
 
-def log(message,loglevel=xbmc.LOGNOTICE):
+
+def log(message,loglevel=INFO):
     xbmc.log(msg='[{}] {}'.format(__addon_id__, message), level=loglevel)
 
 
@@ -62,7 +80,7 @@ class CamLifeview(xbmcgui.WindowDialog):
         self.interval    = int(float(__getSetting__('interval')))		# 500
         self.aspectRatio = int(float(__getSetting__('aspectRatio')))		# 1
         self.fixPosition = bool(__getSetting__('fixPosition') == 'true')	# True
-        self.reqTimeout  = 10 # Timeout for requests
+        self.reqTimeout  = connTimeout # 10 # Timeout for requests
 
 
     def coordinates(self, position):
@@ -149,23 +167,33 @@ class CamLifeview(xbmcgui.WindowDialog):
 
         self.tmpdir = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(16)])
         self.tmpdir = os.path.join(__profile__, self.tmpdir)
+
+        if not self.tmpdir[-1] == os.path.sep:
+            self.tmpdir += os.path.sep
+
         if not xbmcvfs.exists(self.tmpdir):
             xbmcvfs.mkdir(self.tmpdir)
 
+        host = self.cam['url'].split('/')[2].split(':')[0]
+
         self.show()
         self.isRunning = True
+        log('{} Lifeview - Started'.format(host))
 
         self.update()
 
         self.isRunning = False
         self.close()
+        log('{} Lifeview - Stopped'.format(host))
 
         if posIndex:
             posIndex -= 1
 
-        for file in xbmcvfs.listdir(self.tmpdir)[1]:
-            xbmcvfs.delete(os.path.join(self.tmpdir, file))
-        xbmcvfs.rmdir(self.tmpdir)
+        #for file in xbmcvfs.listdir(self.tmpdir)[1]:
+        #    if not xbmcvfs.delete(os.path.join(self.tmpdir, file)):
+        #        log('Failed to remove file \'{}\' from temporary directory \'{}\''.format(file, self.tmpdir))
+        if not xbmcvfs.rmdir(self.tmpdir, True):
+            log('Failed to remove temporary directory \'{}\''.format(self.tmpdir))
 
         self.session = None
 
@@ -219,7 +247,9 @@ class CamLifeview(xbmcgui.WindowDialog):
 
 
     def onAction(self, action):
+        host = self.cam['url'].split('/')[2].split(':')[0]
         if action in (ACTION_PREVIOUS_MENU, ACTION_STOP, ACTION_BACKSPACE, ACTION_NAV_BACK):
+            log('{} Lifeview - Stopped by user action'.format(host))
             self.stop()
 
 
@@ -284,31 +314,41 @@ class CamEventMgr():
         if action == 'Start':
             if self.Lifeview and not self.Lifeview.isRunning:
                 self.Lifeview.start()
-                log('{} Lifeview started'.format(self.Camera['host']))
+                #log('{} Lifeview started'.format(self.Camera['host']))
             elif self.UseCamAddon:
                 rpccmd = json.dumps(self.RPCcmd)
                 log('Calling \'script.securitycam\' addon ...')
-                log('JSON RPC command: {}'.format(rpccmd), loglevel=xbmc.LOGDEBUG)
+                log('JSON RPC command: {}'.format(rpccmd), loglevel=DEBUG)
                 Ret = xbmc.executeJSONRPC(rpccmd)
                 Ret = json.loads(Ret)
                 if 'error' in Ret and 'message' in Ret['error']:
                     log('Call failed with error {}'.format(Ret['error']['message']))
                 elif 'result' in Ret and Ret['result'] == 'OK':
-                    log('Call successful', loglevel=xbmc.LOGDEBUG)
+                    log('Call successful', loglevel=DEBUG)
         elif action == 'Stop':
             if self.Lifeview and not self.Lifeview.useTimeout:
                 self.Lifeview.stop()
 
 
     def HdrHandler(self, data):
-        for line in data.split('\r\n'):
-            log('{} sent header line: {}'.format(self.Camera['host'], line), loglevel=xbmc.LOGDEBUG)
+        try: # python 2
+            lines = data.split('\r\n')
+        except: # python 3
+            lines = data.decode().split('\r\n')
+
+        for line in lines:
+            log('{} sent header line: {}'.format(self.Camera['host'], line), loglevel=DEBUG)
             if line == 'HTTP/1.1 200 OK':
                 self.OnConnect()
 
 
     def OnReceive(self, data):
-        for line in data.split('\r\n'):
+        try: # python 2
+            lines = data.split('\r\n')
+        except: # python 3
+            lines = data.decode().split('\r\n')
+
+        for line in lines:
             # This  part has moved to HdrHandler()
             #if line == 'HTTP/1.1 200 OK':
             #    self.OnConnect()
@@ -316,13 +356,13 @@ class CamEventMgr():
             if not line.startswith('Code='):
                 continue
 
-            log('{} sent raw event: {}'.format(self.Camera['host'], line), loglevel=xbmc.LOGDEBUG)
+            log('{} sent raw event: {}'.format(self.Camera['host'], line), loglevel=DEBUG)
             Event = dict()
             for KeyValue in line.split(';'):
                 Key, Value = KeyValue.split('=')
                 Event[Key] = Value
 
-            log('{} has parsed event {}'.format(self.Camera['host'], Event), loglevel=xbmc.LOGDEBUG)
+            log('{} has parsed event {}'.format(self.Camera['host'], Event), loglevel=DEBUG)
             if Event['Code'] in [x.strip() for x in self.Camera['events'].split(',')]:
                 self.OnEvent(Event['Code'], Event['action'])
 
@@ -357,7 +397,7 @@ class DahuaCamMonitor():
             EventMgr.CurlObj = CurlObj
 
             CurlObj.setopt(pycurl.URL, url)
-            CurlObj.setopt(pycurl.CONNECTTIMEOUT, 30)
+            CurlObj.setopt(pycurl.CONNECTTIMEOUT, connTimeout)
             CurlObj.setopt(pycurl.TCP_KEEPALIVE, 1)
             CurlObj.setopt(pycurl.TCP_KEEPIDLE, 30)
             CurlObj.setopt(pycurl.TCP_KEEPINTVL, 15)
